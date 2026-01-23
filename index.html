@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESP32 Live Barometer</title>
+  <style>
+    body {
+      font-family: system-ui;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .value {
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .label {
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+<h2>ESP32 Barometer (Live)</h2>
+<button onclick="connect()">Connect</button>
+
+<div class="card">
+  <div class="label">Temperature</div>
+  <div class="value"><span id="temp">--</span> °C</div>
+</div>
+
+<div class="card">
+  <div class="label">Pressure</div>
+  <div class="value"><span id="pressure">--</span> hPa</div>
+</div>
+
+<script>
+let characteristic;
+
+/* MUST match ESP32 UUIDs */
+const SERVICE_UUID        = '91bad492-b950-4226-aa2b-4ede9fa42f59';
+const CHARACTERISTIC_UUID = 'cba1d466-344c-4be3-ab3f-189f80dd7518';
+
+async function connect() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'ESP32-Barometer' }],
+      optionalServices: [SERVICE_UUID]
+    });
+
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+    await characteristic.startNotifications();
+    characteristic.addEventListener(
+      'characteristicvaluechanged',
+      handleData
+    );
+
+    alert('Connected');
+  } catch (err) {
+    alert(err);
+  }
+}
+
+function handleData(event) {
+  const text = new TextDecoder().decode(event.target.value);
+
+  try {
+    const data = JSON.parse(text);
+    document.getElementById('temp').textContent = data.temp.toFixed(2);
+    document.getElementById('pressure').textContent = data.pressure.toFixed(2);
+  } catch (e) {
+    console.log('Bad data:', text);
+  }
+}
+</script>
+
+</body>
+</html>
